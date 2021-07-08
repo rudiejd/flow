@@ -1,6 +1,7 @@
 package com.vaadin.base.devserver;
 
 import com.sun.net.httpserver.HttpServer;
+import com.vaadin.flow.internal.UsageStatistics;
 import com.vaadin.flow.server.startup.ApplicationConfiguration;
 import com.vaadin.flow.testutil.TestUtils;
 import junit.framework.TestCase;
@@ -92,6 +93,22 @@ public class VaadinUsageStatisticsTests extends TestCase {
     }
 
     @Test
+    public void testReadWriteUserKey() {
+        String key = VaadinUsageStatistics.getUserKey();
+        assertNotNull(key);
+        String key2 = VaadinUsageStatistics.getUserKey();
+        assertEquals(key,key2);
+    }
+
+    @Test
+    public void testReadProKey() {
+        String key = VaadinUsageStatistics.getProKey();
+        assertNotNull(key);
+        String key2 = VaadinUsageStatistics.getProKey();
+        assertEquals(key,key2);
+    }
+
+    @Test
     public void testNullStatisticsUpdate() {
     }
 
@@ -142,10 +159,6 @@ public class VaadinUsageStatisticsTests extends TestCase {
         Mockito.when(appConfig.isUsageStatisticsEnabled()).thenReturn(true);
 
         return appConfig;
-    }
-
-    private VaadinUsageStatistics.LocalProKey mockLocalProKey() {
-        return Mockito.mock(VaadinUsageStatistics.LocalProKey.class);
     }
 
     public static HttpServer createStubGatherServlet(int port, int status,

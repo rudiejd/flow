@@ -72,6 +72,7 @@ public class VaadinUsageStatistics {
     private static final String PARAMETER_PROJECT_SOURCE_ID = "project.source.id";
     public static final String PROPERTY_USER_HOME = "user.home";
     public static final String VAADIN_FOLDER_NAME = ".vaadin";
+    public static final String PRO_KEY_FILE_NAME = "proKey";
     public static final String USER_KEY_FILE_NAME = "userKey";
 
     // Meta fields for reporting and scheduling
@@ -231,7 +232,7 @@ public class VaadinUsageStatistics {
      */
     static String getProKey() {
             // Use the local proKey if present
-            ProKey proKey = LocalProKey.get();
+            ProKey proKey = ProKey.get();
             return proKey.getProKey();
     }
 
@@ -273,7 +274,7 @@ public class VaadinUsageStatistics {
      *
      * @return File containing the generated user id.
      */
-    static File getUserKeyLocation() {
+    private static File getUserKeyLocation() {
         String userHome = System.getProperty(PROPERTY_USER_HOME);
         return new File(new File(userHome, VAADIN_FOLDER_NAME), USER_KEY_FILE_NAME);
     }
@@ -749,7 +750,7 @@ public class VaadinUsageStatistics {
      *
      *  Uses default method visibility to allow testing, but not intended to use outside.
      */
-    static class ProKey {
+    public static class ProKey {
 
         private final String username;
         private final String proKey;
@@ -758,6 +759,14 @@ public class VaadinUsageStatistics {
             super();
             this.username = username;
             this.proKey = proKey;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public String getProKey() {
+            return proKey;
         }
 
         public static ProKey fromJson(String jsonData) {
@@ -775,16 +784,19 @@ public class VaadinUsageStatistics {
 
         public static ProKey fromFile(File jsonFile) throws IOException {
             ProKey proKey = new ProKey(null,null);
-            JsonNode json = jsonMapper.readTree(jsonFile);
-            if (json != null && json.has("proKey")) {
-                proKey = new ProKey(null,
+            try {
+                JsonNode json = jsonMapper.readTree(jsonFile);
+                proKey = new ProKey(json.get("username").asText(),
                         json.get("proKey").asText());
+                return proKey;
+            } catch (JsonProcessingException |NullPointerException ignored) {
+                getLogger().debug("Failed to parse proKey from Json", ignored);
             }
             return proKey;
         }
 
         public void toFile(File proKeyLocation) throws IOException {
-            jsonMapper.writeValue(proKeyLocation,proKey);
+            jsonMapper.writeValue(proKeyLocation,this);
         }
 
         public String toJson() {
@@ -799,43 +811,6 @@ public class VaadinUsageStatistics {
             return null;
         }
 
-        public String getUsername() {
-            return username;
-        }
-
-        public String getProKey() {
-            return proKey;
-        }
-
-    }
-
-    /** Class representing Vaadin Pro key.
-     *  Uses default method visibility to allow testing, but not intended to use outside.
-     */
-    static class LocalProKey {
-
-        private LocalProKey() {}
-
-        private static ProKey read(File proKeyLocation) throws IOException {
-            if (!proKeyLocation.exists()) {
-                return null;
-            }
-            return ProKey.fromFile(proKeyLocation);
-        }
-
-        public static void write(ProKey proKey, File proKeyLocation) throws IOException {
-            File proKeyDirectory = getLocation().getParentFile();
-            if (!proKeyDirectory.exists()) {
-                proKeyDirectory.mkdirs();
-            }
-            proKey.toFile(proKeyLocation);
-        }
-
-        public static File getLocation() {
-            String userHome = System.getProperty(PROPERTY_USER_HOME);
-            return new File(new File(userHome, VAADIN_FOLDER_NAME), "proKey");
-        }
-
         public static ProKey get() {
             ProKey proKey = getSystemProperty();
             if (proKey != null) {
@@ -845,7 +820,7 @@ public class VaadinUsageStatistics {
             if (proKey != null) {
                 return proKey;
             }
-            File proKeyLocation = getLocation();
+            File proKeyLocation = getFileLocation();
             try {
                 proKey = read(proKeyLocation);
                 return proKey;
@@ -884,6 +859,27 @@ public class VaadinUsageStatistics {
 
             return new ProKey(parts[0], parts[1]);
         }
+
+        public static File getFileLocation() {
+            String userHome = System.getProperty(PROPERTY_USER_HOME);
+            return new File(new File(userHome, VAADIN_FOLDER_NAME), PRO_KEY_FILE_NAME);
+        }
+
+        private static ProKey read(File proKeyLocation) throws IOException {
+            if (!proKeyLocation.exists()) {
+                return null;
+            }
+            return ProKey.fromFile(proKeyLocation);
+        }
+
+        public static void write(ProKey proKey, File proKeyLocation) throws IOException {
+            File proKeyDirectory = proKeyLocation.getParentFile();
+            if (!proKeyDirectory.exists()) {
+                proKeyDirectory.mkdirs();
+            }
+            proKey.toFile(proKeyLocation);
+        }
+
     }
 
 
