@@ -150,7 +150,7 @@ public class VaadinUsageStatistics {
 
             // Show message in System.out, if present
             if (message != null && !message.trim().isEmpty()) {
-                System.out.println(message);
+                getLogger().info(message);
             }
         }
 
