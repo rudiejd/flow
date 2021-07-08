@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
@@ -90,6 +91,7 @@ public class VaadinUsageStatistics {
     private static final String FIELD_PROKEY = "proKey";
     private static final String FIELD_USER_KEY = "userKey";
     public static final String FIELD_PROJECTS = "projects";
+    private static final String VAADIN_PROJECT_SOURCE_TEXT = "Vaadin project from";
 
     private static String projectId;
     private static final ObjectMapper jsonMapper = new ObjectMapper();
@@ -140,7 +142,7 @@ public class VaadinUsageStatistics {
 
         // Update basic project statistics and save
         projectJson.put(FIELD_FLOW_VERSION, Version.getFullVersion());
-        projectJson.put(FIELD_SOURCE_ID, config.getStringProperty(PARAMETER_PROJECT_SOURCE_ID, MISSING_DATA));
+        projectJson.put(FIELD_SOURCE_ID, getProjectSource(projectFolder));
         incrementJsonValue(projectJson, FIELD_PROJECT_DEVMODE_STARTS);
         writeStatisticsJson(json);
 
@@ -376,7 +378,7 @@ public class VaadinUsageStatistics {
      * Uses either pom.xml or settings.gradle.
      *
      * @param projectFolder Project root folder. Should contain either pom.xml or settings.gradle.
-     * @return Unique string of project or hash of <code>DEFAULT_PROJECT_ID</code> if no valid project was found in the folder.
+     * @return Pseudonymised hash id of project or <code>DEFAULT_PROJECT_ID</code> if no valid project was found in the folder.
      */
     static String generateProjectId(String projectFolder) {
         Path projectPath = Paths.get(projectFolder);
@@ -405,7 +407,8 @@ public class VaadinUsageStatistics {
                         .findFirst()
                         .orElse(DEFAULT_PROJECT_ID);
                 if (projectName.contains("=")) {
-                    projectName = projectName.substring(projectName.indexOf("="));
+                    projectName = projectName.substring(projectName.indexOf("=")+1)
+                            .replaceAll("\'","").trim();
                 }
                 return "gradle"+createHash(projectName);
             } catch (IOException ignored) {
@@ -413,6 +416,59 @@ public class VaadinUsageStatistics {
             }
         }
         return createHash(DEFAULT_PROJECT_ID);
+    }
+
+    /**
+     *  Get the source URL for the project.
+     *
+     *  Looks for comment in either pom.xml or or settings.gradle that points back original source
+     *  or repository of the project.
+     *
+     * @param projectFolder Project root folder. Should contain either pom.xml or settings.gradle.
+     * @return URL of the project source or  <code>MISSING_DATA</code> if no valid URL was found.
+     */
+    static String getProjectSource(String projectFolder) {
+        Path projectPath = Paths.get(projectFolder);
+        File pomFile = projectPath.resolve("pom.xml").toFile();
+
+        // Maven project
+        if (pomFile.exists()) {
+            try {
+                DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+                DocumentBuilder db = dbf.newDocumentBuilder();
+                Document pom = db.parse(pomFile);
+                NodeList nodeList = pom.getDocumentElement().getChildNodes();
+                for (int i = 0; i < nodeList.getLength(); i++) {
+                    if (nodeList.item(i).getNodeType() == Node.COMMENT_NODE)  {
+                        String comment = nodeList.item(i).getTextContent();
+                        if (comment.contains(VAADIN_PROJECT_SOURCE_TEXT)) {
+                            return comment.substring(comment.indexOf(VAADIN_PROJECT_SOURCE_TEXT)
+                                    + VAADIN_PROJECT_SOURCE_TEXT.length()).trim();
+                        }
+                    }
+                }
+            } catch (SAXException | IOException | ParserConfigurationException ignored) {
+                getLogger().debug("Failed to parse project id from "+pomFile.getPath(),ignored);
+            }
+        }
+
+        // Gradle project
+        Path gradleFile = projectPath.resolve("settings.gradle");
+        if (gradleFile.toFile().exists()) {
+            try (Stream<String> stream = Files.lines(gradleFile)) {
+                String projectName =  stream
+                        .filter(line -> line.contains(VAADIN_PROJECT_SOURCE_TEXT))
+                        .findFirst()
+                        .orElse(null);
+                if (projectName != null) {
+                    return projectName.substring(projectName.indexOf(VAADIN_PROJECT_SOURCE_TEXT)
+                            + VAADIN_PROJECT_SOURCE_TEXT.length()).trim();
+                }
+            } catch (IOException ignored) {
+                getLogger().debug("Failed to parse project id from "+gradleFile.toFile().getPath(),ignored);
+            }
+        }
+        return MISSING_DATA;
     }
 
     /**

@@ -1,1 +1,3 @@
-rootProject.name=GradleProjectName2
+// Vaadin project from https://start.vaadin.com/2
+rootProject.name = 'GradleProjectName2'
+version = '0.1'

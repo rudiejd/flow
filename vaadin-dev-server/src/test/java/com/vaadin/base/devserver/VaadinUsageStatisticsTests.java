@@ -50,6 +50,16 @@ public class VaadinUsageStatisticsTests extends TestCase {
     }
 
     @Test
+    public void testMavenProjectSource() {
+        String mavenProjectFolder1 = TestUtils.getTestFolder("maven-project-folder1").toPath().toString();
+        String mavenProjectFolder2 = TestUtils.getTestFolder("maven-project-folder2").toPath().toString();
+        String source1 = VaadinUsageStatistics.getProjectSource(mavenProjectFolder1);
+        String source2 = VaadinUsageStatistics.getProjectSource(mavenProjectFolder2);
+        Assert.assertEquals("https://start.vaadin.com/1",source1);
+        Assert.assertEquals("https://start.vaadin.com/2",source2);
+    }
+
+    @Test
     public void testGradleProjectProjectId() {
         String gradleProjectFolder1 = TestUtils.getTestFolder("gradle-project-folder1").toPath().toString();
         String gradleProjectFolder2 = TestUtils.getTestFolder("gradle-project-folder2").toPath().toString();
@@ -60,6 +70,15 @@ public class VaadinUsageStatisticsTests extends TestCase {
         Assert.assertNotEquals(id1,id2); // Should differ
     }
 
+    @Test
+    public void testGradleProjectSource() {
+        String gradleProjectFolder1 = TestUtils.getTestFolder("gradle-project-folder1").toPath().toString();
+        String gradleProjectFolder2 = TestUtils.getTestFolder("gradle-project-folder2").toPath().toString();
+        String source1 = VaadinUsageStatistics.getProjectSource(gradleProjectFolder1);
+        String source2 = VaadinUsageStatistics.getProjectSource(gradleProjectFolder2);
+        Assert.assertEquals("https://start.vaadin.com/1",source1);
+        Assert.assertEquals("https://start.vaadin.com/2",source2);
+    }
 
     @Test
     public void testMissingProject() {
